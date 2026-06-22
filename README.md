@@ -10,6 +10,8 @@ Right now it can:
 - Update a project's status
 - Run as a simple browser app at `http://localhost:8080`
 - Save browser app projects to `projects.txt`
+- Add, edit, complete, and delete tasks under each project
+- Upload photos under each project
 
 ## Where the Code Goes
 
@@ -121,9 +123,7 @@ That function asks the user questions and creates a new project.
 
 After this works, good next steps are:
 
-- Save projects to a file
-- Add project tasks
 - Add daily logs
 - Add material tracking
 - Add change orders
-- Build a simple desktop or web interface
+- Replace `projects.txt` with a real database
