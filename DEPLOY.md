@@ -76,20 +76,10 @@ In Render:
 1. Click `New`.
 2. Click `Web Service`.
 3. Pick your `construction-java-app` GitHub repository.
-4. For runtime, choose Java or a native environment if offered.
-5. Use this build command:
+4. For runtime, choose `Docker`.
+5. Render will use the `Dockerfile` in this project.
 
-```bash
-javac src/*.java
-```
-
-6. Use this start command:
-
-```bash
-java -cp src WebApp
-```
-
-7. Click `Deploy Web Service`.
+6. Click `Deploy Web Service`.
 
 ## Step 7: Open Your Live Website
 

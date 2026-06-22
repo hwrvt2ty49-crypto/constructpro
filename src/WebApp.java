@@ -21,14 +21,20 @@ public class WebApp {
     public static void main(String[] args) throws IOException {
         loadProjects();
 
-        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+        int port = getPort();
+        HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/", WebApp::handleHomePage);
         server.createContext("/add-project", WebApp::handleAddProject);
         server.setExecutor(null);
         server.start();
 
         System.out.println("Construction app is running.");
-        System.out.println("Open this in your browser: http://localhost:8080");
+        System.out.println("Open this in your browser: http://localhost:" + port);
+    }
+
+    private static int getPort() {
+        String portText = System.getenv().getOrDefault("PORT", "8080");
+        return Integer.parseInt(portText);
     }
 
     private static void handleHomePage(HttpExchange exchange) throws IOException {
