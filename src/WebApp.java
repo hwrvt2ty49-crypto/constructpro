@@ -25,6 +25,7 @@ public class WebApp {
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/", WebApp::handleHomePage);
         server.createContext("/add-project", WebApp::handleAddProject);
+        server.createContext("/delete-project", WebApp::handleDeleteProject);
         server.setExecutor(null);
         server.start();
 
@@ -71,22 +72,54 @@ public class WebApp {
         exchange.close();
     }
 
+    private static void handleDeleteProject(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equals("POST")) {
+            sendResponse(exchange, "Method not allowed", 405);
+            return;
+        }
+
+        String formBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        Map<String, String> formData = parseFormData(formBody);
+        String indexText = formData.getOrDefault("index", "");
+
+        try {
+            int projectIndex = Integer.parseInt(indexText);
+
+            if (projectIndex >= 0 && projectIndex < projects.size()) {
+                projects.remove(projectIndex);
+                saveProjects();
+            }
+        } catch (NumberFormatException error) {
+            System.out.println("Could not delete project. Bad project number: " + indexText);
+        }
+
+        exchange.getResponseHeaders().add("Location", "/");
+        exchange.sendResponseHeaders(303, -1);
+        exchange.close();
+    }
+
     private static String buildHomePage() {
         StringBuilder projectCards = new StringBuilder();
 
-        for (Project project : projects) {
+        for (int i = 0; i < projects.size(); i++) {
+            Project project = projects.get(i);
             projectCards.append("""
                     <article class="project-card">
                         <h3>%s</h3>
                         <p><strong>Client:</strong> %s</p>
                         <p><strong>Address:</strong> %s</p>
                         <p><strong>Status:</strong> %s</p>
+                        <form class="delete-form" method="POST" action="/delete-project">
+                            <input type="hidden" name="index" value="%d">
+                            <button class="delete-button" type="submit">Delete</button>
+                        </form>
                     </article>
                     """.formatted(
                     escapeHtml(project.getName()),
                     escapeHtml(project.getClient()),
                     escapeHtml(project.getAddress()),
-                    escapeHtml(project.getStatus())
+                    escapeHtml(project.getStatus()),
+                    i
             ));
         }
 
@@ -131,7 +164,7 @@ public class WebApp {
                             align-items: start;
                         }
 
-                        form, .project-card {
+                        .add-project-form, .project-card {
                             background: white;
                             border: 1px solid #d9e1e8;
                             border-radius: 8px;
@@ -180,6 +213,17 @@ public class WebApp {
                             margin: 6px 0;
                         }
 
+                        .delete-form {
+                            margin-top: 14px;
+                        }
+
+                        .delete-button {
+                            width: auto;
+                            margin-top: 0;
+                            padding: 8px 12px;
+                            background: #b42318;
+                        }
+
                         @media (max-width: 760px) {
                             .page {
                                 padding: 18px 14px;
@@ -192,7 +236,7 @@ public class WebApp {
                                 grid-template-columns: 1fr;
                                 gap:18px;
                             }
-                            form, .project-card {
+                            .add-project-form, .project-card {
                                 padding: 14px;
                             }
                             input, button {
@@ -209,7 +253,7 @@ public class WebApp {
                         </header>
 
                         <section class="layout">
-                            <form method="POST" action="/add-project">
+                            <form class="add-project-form" method="POST" action="/add-project">
                                 <h2>Add Project</h2>
 
                                 <label for="name">Project Name</label>
