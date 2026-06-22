@@ -87,10 +87,19 @@ public class WebApp {
 
         Map<String, String> formData = readUrlEncodedForm(exchange);
         Project project = findProject(formData.getOrDefault("index", ""));
-        String taskText = formData.getOrDefault("task", "").trim();
+        String taskText = formData.getOrDefault("task", "");
 
-        if (project != null && !taskText.isBlank()) {
-            project.addTask(taskText);
+        if (project != null) {
+            String[] taskLines = taskText.split("\\R");
+
+            for (String taskLine : taskLines) {
+                String newTask = taskLine.trim();
+
+                if (!newTask.isBlank()) {
+                    project.addTask(newTask);
+                }
+            }
+
             saveProjects();
         }
 
@@ -249,9 +258,9 @@ public class WebApp {
                             %s
                             <form class="add-row-form" method="POST" action="/add-task">
                                 <input type="hidden" name="index" value="%d">
-                                <label for="task-%d">New Task</label>
-                                <input id="task-%d" name="task" placeholder="Example: Schedule rough inspection">
-                                <button type="submit">Add Task</button>
+                                <label for="task-%d">Add Tasks</label>
+                                <textarea id="task-%d" name="task" rows="4" placeholder="One task per line&#10;Schedule rough inspection&#10;Order drywall&#10;Confirm cabinet delivery"></textarea>
+                                <button type="submit">Add Tasks</button>
                             </form>
                         </section>
 
@@ -347,6 +356,18 @@ public class WebApp {
                             font-size: 15px;
                         }
 
+                        textarea {
+                            width: 100%;
+                            box-sizing: border-box;
+                            margin-top: 6px;
+                            padding: 10px;
+                            border: 1px solid #b8c4ce;
+                            border-radius: 6px;
+                            font-family: Arial, sans-serif;
+                            font-size: 15px;
+                            resize: vertical;
+                        }
+
                         button {
                             width: 100%;
                             margin-top: 16px;
@@ -397,19 +418,22 @@ public class WebApp {
 
                         .task-list {
                             display: grid;
-                            gap: 10px;
+                            gap: 6px;
                             margin-bottom: 12px;
+                            padding: 8px;
+                            border: 1px solid #e6edf3;
+                            border-radius: 8px;
+                            background: #fbfcfd;
                         }
 
                         .task-row {
                             display: grid;
-                            grid-template-columns: auto 1fr auto;
+                            grid-template-columns: 32px 1fr auto auto;
                             gap: 8px;
-                            align-items: end;
-                            padding: 10px;
-                            border: 1px solid #e6edf3;
-                            border-radius: 8px;
-                            background: #fbfcfd;
+                            align-items: center;
+                            padding: 8px;
+                            border-radius: 6px;
+                            background: white;
                         }
 
                         .task-row form {
@@ -427,6 +451,29 @@ public class WebApp {
                             margin-top: 0;
                         }
 
+                        .checkbox-form {
+                            display: flex;
+                            justify-content: center;
+                        }
+
+                        .checkbox-button {
+                            width: 24px;
+                            height: 24px;
+                            margin: 0;
+                            padding: 0;
+                            border: 2px solid #2364aa;
+                            border-radius: 5px;
+                            background: white;
+                            color: white;
+                            font-size: 15px;
+                            line-height: 1;
+                        }
+
+                        .task-done .checkbox-button {
+                            background: #217a43;
+                            border-color: #217a43;
+                        }
+
                         .task-done input {
                             text-decoration: line-through;
                             color: #637381;
@@ -437,14 +484,6 @@ public class WebApp {
                             margin-top: 0;
                             padding: 9px 11px;
                             white-space: nowrap;
-                        }
-
-                        .done-button {
-                            background: #217a43;
-                        }
-
-                        .not-done-button {
-                            background: #6b7280;
                         }
 
                         .delete-button {
@@ -495,7 +534,7 @@ public class WebApp {
                                 padding: 14px;
                             }
 
-                            input, button {
+                            input, textarea, button {
                                 font-size: 16px;
                             }
 
@@ -504,11 +543,16 @@ public class WebApp {
                             }
 
                             .task-row {
-                                grid-template-columns: 1fr;
+                                grid-template-columns: 32px 1fr;
                             }
 
                             .task-edit-form {
+                                grid-column: 2;
                                 grid-template-columns: 1fr;
+                            }
+
+                            .task-row > form:last-child {
+                                grid-column: 2;
                             }
 
                             .small-button, .delete-button {
@@ -566,15 +610,14 @@ public class WebApp {
         for (int taskIndex = 0; taskIndex < project.getTasks().size(); taskIndex++) {
             ProjectTask task = project.getTasks().get(taskIndex);
             String rowClass = task.isDone() ? "task-row task-done" : "task-row";
-            String doneButtonClass = task.isDone() ? "small-button not-done-button" : "small-button done-button";
-            String doneButtonText = task.isDone() ? "Undo" : "Done";
+            String checkboxText = task.isDone() ? "✓" : "";
 
             html.append("""
                     <div class="%s">
-                        <form method="POST" action="/toggle-task">
+                        <form class="checkbox-form" method="POST" action="/toggle-task">
                             <input type="hidden" name="index" value="%d">
                             <input type="hidden" name="taskIndex" value="%d">
-                            <button class="%s" type="submit">%s</button>
+                            <button class="checkbox-button" type="submit" aria-label="Toggle task">%s</button>
                         </form>
                         <form class="task-edit-form" method="POST" action="/update-task">
                             <input type="hidden" name="index" value="%d">
@@ -592,8 +635,7 @@ public class WebApp {
                     rowClass,
                     projectIndex,
                     taskIndex,
-                    doneButtonClass,
-                    doneButtonText,
+                    checkboxText,
                     projectIndex,
                     taskIndex,
                     escapeHtml(task.getText()),
