@@ -21,6 +21,8 @@ public class WebApp {
     private static final Path UPLOADS_DIR = Path.of("uploads");
     private static final String TASK_SEPARATOR = "~~TASK~~";
     private static final String PHOTO_SEPARATOR = "~~PHOTO~~";
+    private static final String MATERIAL_SEPARATOR = "~~MATERIAL~~";
+    private static final String MATERIAL_FIELD_SEPARATOR = "::";
     private static final String TASK_DONE_SEPARATOR = "::";
 
     public static void main(String[] args) throws IOException {
@@ -35,6 +37,10 @@ public class WebApp {
         server.createContext("/update-task", WebApp::handleUpdateTask);
         server.createContext("/toggle-task", WebApp::handleToggleTask);
         server.createContext("/delete-task", WebApp::handleDeleteTask);
+        server.createContext("/add-material", WebApp::handleAddMaterial);
+        server.createContext("/update-material", WebApp::handleUpdateMaterial);
+        server.createContext("/delete-material", WebApp::handleDeleteMaterial);
+        server.createContext("/update-budget", WebApp::handleUpdateBudget);
         server.createContext("/upload-photo", WebApp::handleUploadPhoto);
         server.createContext("/uploads", WebApp::handleUploadedFile);
         server.createContext("/delete-project", WebApp::handleDeleteProject);
@@ -161,6 +167,87 @@ public class WebApp {
         redirectHome(exchange);
     }
 
+    private static void handleAddMaterial(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equals("POST")) {
+            sendResponse(exchange, "Method not allowed", 405);
+            return;
+        }
+
+        Map<String, String> formData = readUrlEncodedForm(exchange);
+        Project project = findProject(formData.getOrDefault("index", ""));
+        String name = formData.getOrDefault("materialName", "").trim();
+        String quantity = formData.getOrDefault("materialQuantity", "").trim();
+        String status = formData.getOrDefault("materialStatus", "").trim();
+
+        if (project != null && !name.isBlank()) {
+            project.addMaterial(name, quantity, status);
+            saveProjects();
+        }
+
+        redirectHome(exchange);
+    }
+
+    private static void handleUpdateMaterial(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equals("POST")) {
+            sendResponse(exchange, "Method not allowed", 405);
+            return;
+        }
+
+        Map<String, String> formData = readUrlEncodedForm(exchange);
+        Project project = findProject(formData.getOrDefault("index", ""));
+        int materialIndex = parseIndex(formData.getOrDefault("materialIndex", ""));
+        String name = formData.getOrDefault("materialName", "").trim();
+        String quantity = formData.getOrDefault("materialQuantity", "").trim();
+        String status = formData.getOrDefault("materialStatus", "").trim();
+
+        if (project != null
+                && materialIndex >= 0
+                && materialIndex < project.getMaterials().size()
+                && !name.isBlank()) {
+            project.updateMaterial(materialIndex, name, quantity, status);
+            saveProjects();
+        }
+
+        redirectHome(exchange);
+    }
+
+    private static void handleDeleteMaterial(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equals("POST")) {
+            sendResponse(exchange, "Method not allowed", 405);
+            return;
+        }
+
+        Map<String, String> formData = readUrlEncodedForm(exchange);
+        Project project = findProject(formData.getOrDefault("index", ""));
+        int materialIndex = parseIndex(formData.getOrDefault("materialIndex", ""));
+
+        if (project != null && materialIndex >= 0 && materialIndex < project.getMaterials().size()) {
+            project.deleteMaterial(materialIndex);
+            saveProjects();
+        }
+
+        redirectHome(exchange);
+    }
+
+    private static void handleUpdateBudget(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equals("POST")) {
+            sendResponse(exchange, "Method not allowed", 405);
+            return;
+        }
+
+        Map<String, String> formData = readUrlEncodedForm(exchange);
+        Project project = findProject(formData.getOrDefault("index", ""));
+        double estimatedBudget = parseMoney(formData.getOrDefault("estimatedBudget", ""));
+        double actualCost = parseMoney(formData.getOrDefault("actualCost", ""));
+
+        if (project != null) {
+            project.updateBudget(estimatedBudget, actualCost);
+            saveProjects();
+        }
+
+        redirectHome(exchange);
+    }
+
     private static void handleUploadPhoto(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equals("POST")) {
             sendResponse(exchange, "Method not allowed", 405);
@@ -265,6 +352,49 @@ public class WebApp {
                         </section>
 
                         <section class="project-section">
+                            <h4>Materials</h4>
+                            %s
+                            <form class="material-add-form" method="POST" action="/add-material">
+                                <input type="hidden" name="index" value="%d">
+                                <div class="field">
+                                    <label for="material-name-%d">Material</label>
+                                    <input id="material-name-%d" name="materialName" placeholder="Example: 2x4 lumber">
+                                </div>
+
+                                <div class="field">
+                                    <label for="material-quantity-%d">Quantity</label>
+                                    <input id="material-quantity-%d" name="materialQuantity" placeholder="Example: 120 pieces">
+                                </div>
+
+                                <div class="field">
+                                    <label for="material-status-%d">Status</label>
+                                    <input id="material-status-%d" name="materialStatus" placeholder="Needed, ordered, delivered">
+                                </div>
+
+                                <button type="submit">Add Material</button>
+                            </form>
+                        </section>
+
+                        <section class="project-section">
+                            <h4>Budget</h4>
+                            %s
+                            <form class="budget-form" method="POST" action="/update-budget">
+                                <input type="hidden" name="index" value="%d">
+                                <div class="field">
+                                    <label for="estimated-budget-%d">Estimated Budget</label>
+                                    <input id="estimated-budget-%d" name="estimatedBudget" type="number" min="0" step="0.01" value="%.2f">
+                                </div>
+
+                                <div class="field">
+                                    <label for="actual-cost-%d">Actual Cost</label>
+                                    <input id="actual-cost-%d" name="actualCost" type="number" min="0" step="0.01" value="%.2f">
+                                </div>
+
+                                <button type="submit">Save Budget</button>
+                            </form>
+                        </section>
+
+                        <section class="project-section">
                             <h4>Photos</h4>
                             %s
                             <form class="add-row-form" method="POST" action="/upload-photo" enctype="multipart/form-data">
@@ -285,6 +415,22 @@ public class WebApp {
                     i,
                     i,
                     i,
+                    buildMaterialsHtml(project, i),
+                    i,
+                    i,
+                    i,
+                    i,
+                    i,
+                    i,
+                    i,
+                    buildBudgetHtml(project),
+                    i,
+                    i,
+                    i,
+                    project.getEstimatedBudget(),
+                    i,
+                    i,
+                    project.getActualCost(),
                     buildPhotosHtml(project),
                     i,
                     i,
@@ -344,6 +490,10 @@ public class WebApp {
                             display: block;
                             margin-top: 12px;
                             font-weight: bold;
+                        }
+
+                        .field label {
+                            margin-top: 0;
                         }
 
                         input {
@@ -501,6 +651,94 @@ public class WebApp {
                             margin-top: 12px;
                         }
 
+                        .material-list {
+                            display: grid;
+                            gap: 8px;
+                            margin-bottom: 12px;
+                        }
+
+                        .material-row {
+                            display: grid;
+                            grid-template-columns: 1.2fr 1fr 1fr auto;
+                            gap: 8px;
+                            align-items: end;
+                            padding: 10px;
+                            border: 1px solid #e6edf3;
+                            border-radius: 8px;
+                            background: #fbfcfd;
+                        }
+
+                        .material-row input {
+                            margin-top: 0;
+                        }
+
+                        .material-delete-form {
+                            margin: -4px 0 8px;
+                        }
+
+                        .material-add-form {
+                            display: grid;
+                            grid-template-columns: 1.2fr 1fr 1fr;
+                            gap: 8px;
+                            align-items: end;
+                        }
+
+                        .material-add-form label {
+                            margin-top: 0;
+                        }
+
+                        .material-add-form button {
+                            grid-column: 1 / -1;
+                        }
+
+                        .budget-summary {
+                            display: grid;
+                            grid-template-columns: repeat(3, 1fr);
+                            gap: 10px;
+                            margin-bottom: 12px;
+                        }
+
+                        .budget-summary div {
+                            padding: 12px;
+                            border: 1px solid #e6edf3;
+                            border-radius: 8px;
+                            background: #fbfcfd;
+                        }
+
+                        .budget-summary span {
+                            display: block;
+                            margin-bottom: 4px;
+                            color: #5f6f7a;
+                            font-size: 13px;
+                        }
+
+                        .budget-summary strong {
+                            font-size: 18px;
+                        }
+
+                        .budget-ok strong {
+                            color: #217a43;
+                        }
+
+                        .budget-over strong {
+                            color: #b42318;
+                        }
+
+                        .budget-form {
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 8px;
+                            align-items: end;
+                        }
+
+                        .budget-form label {
+                            margin-top: 0;
+                        }
+
+                        .budget-form button {
+                            grid-column: 1 / -1;
+                        }
+
                         .photo-grid {
                             display: grid;
                             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -553,6 +791,18 @@ public class WebApp {
 
                             .task-row > form:last-child {
                                 grid-column: 2;
+                            }
+
+                            .material-row,
+                            .material-add-form,
+                            .budget-summary,
+                            .budget-form {
+                                grid-template-columns: 1fr;
+                            }
+
+                            .material-add-form button,
+                            .budget-form button {
+                                grid-column: auto;
                             }
 
                             .small-button, .delete-button {
@@ -665,6 +915,73 @@ public class WebApp {
         return html.toString();
     }
 
+    private static String buildMaterialsHtml(Project project, int projectIndex) {
+        if (project.getMaterials().isEmpty()) {
+            return "<p class=\"empty-message\">No materials yet.</p>";
+        }
+
+        StringBuilder html = new StringBuilder("<div class=\"material-list\">");
+
+        for (int materialIndex = 0; materialIndex < project.getMaterials().size(); materialIndex++) {
+            ProjectMaterial material = project.getMaterials().get(materialIndex);
+
+            html.append("""
+                    <form class="material-row" method="POST" action="/update-material">
+                        <input type="hidden" name="index" value="%d">
+                        <input type="hidden" name="materialIndex" value="%d">
+                        <input name="materialName" value="%s" aria-label="Material name">
+                        <input name="materialQuantity" value="%s" aria-label="Material quantity">
+                        <input name="materialStatus" value="%s" aria-label="Material status">
+                        <button class="small-button" type="submit">Save</button>
+                    </form>
+                    <form class="material-delete-form" method="POST" action="/delete-material">
+                        <input type="hidden" name="index" value="%d">
+                        <input type="hidden" name="materialIndex" value="%d">
+                        <button class="delete-button" type="submit">Delete Material</button>
+                    </form>
+                    """.formatted(
+                    projectIndex,
+                    materialIndex,
+                    escapeHtml(material.getName()),
+                    escapeHtml(material.getQuantity()),
+                    escapeHtml(material.getStatus()),
+                    projectIndex,
+                    materialIndex
+            ));
+        }
+
+        html.append("</div>");
+        return html.toString();
+    }
+
+    private static String buildBudgetHtml(Project project) {
+        double remaining = project.getBudgetRemaining();
+        String remainingClass = remaining < 0 ? "budget-over" : "budget-ok";
+
+        return """
+                <div class="budget-summary">
+                    <div>
+                        <span>Estimated</span>
+                        <strong>%s</strong>
+                    </div>
+                    <div>
+                        <span>Actual</span>
+                        <strong>%s</strong>
+                    </div>
+                    <div class="%s">
+                        <span>%s</span>
+                        <strong>%s</strong>
+                    </div>
+                </div>
+                """.formatted(
+                formatMoney(project.getEstimatedBudget()),
+                formatMoney(project.getActualCost()),
+                remainingClass,
+                remaining < 0 ? "Over" : "Remaining",
+                formatMoney(Math.abs(remaining))
+        );
+    }
+
     private static Map<String, String> readUrlEncodedForm(HttpExchange exchange) throws IOException {
         String formBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         return parseFormData(formBody);
@@ -707,6 +1024,18 @@ public class WebApp {
         }
     }
 
+    private static double parseMoney(String moneyText) {
+        try {
+            return Double.parseDouble(moneyText);
+        } catch (NumberFormatException error) {
+            return 0;
+        }
+    }
+
+    private static String formatMoney(double amount) {
+        return "$" + String.format("%.2f", amount);
+    }
+
     private static void redirectHome(HttpExchange exchange) throws IOException {
         exchange.getResponseHeaders().add("Location", "/");
         exchange.sendResponseHeaders(303, -1);
@@ -741,6 +1070,9 @@ public class WebApp {
             if (parts.size() >= 4) {
                 List<ProjectTask> tasks = new ArrayList<>();
                 List<String> photos = new ArrayList<>();
+                List<ProjectMaterial> materials = new ArrayList<>();
+                double estimatedBudget = 0;
+                double actualCost = 0;
 
                 if (parts.size() >= 5) {
                     tasks = decodeProjectTasks(parts.get(4));
@@ -750,13 +1082,28 @@ public class WebApp {
                     photos = decodeProjectPhotos(parts.get(5));
                 }
 
+                if (parts.size() >= 7) {
+                    materials = decodeProjectMaterials(parts.get(6));
+                }
+
+                if (parts.size() >= 8) {
+                    estimatedBudget = parseMoney(decodeProjectText(parts.get(7)));
+                }
+
+                if (parts.size() >= 9) {
+                    actualCost = parseMoney(decodeProjectText(parts.get(8)));
+                }
+
                 projects.add(new Project(
                         decodeProjectText(parts.get(0)),
                         decodeProjectText(parts.get(1)),
                         decodeProjectText(parts.get(2)),
                         decodeProjectText(parts.get(3)),
                         tasks,
-                        photos
+                        photos,
+                        materials,
+                        estimatedBudget,
+                        actualCost
                 ));
             }
         }
@@ -771,7 +1118,10 @@ public class WebApp {
                     + encodeProjectText(project.getAddress()) + "|"
                     + encodeProjectText(project.getStatus()) + "|"
                     + encodeProjectTasks(project.getTasks()) + "|"
-                    + encodeProjectPhotos(project.getPhotos());
+                    + encodeProjectPhotos(project.getPhotos()) + "|"
+                    + encodeProjectMaterials(project.getMaterials()) + "|"
+                    + encodeProjectText(Double.toString(project.getEstimatedBudget())) + "|"
+                    + encodeProjectText(Double.toString(project.getActualCost()));
             lines.add(line);
         }
 
@@ -816,7 +1166,9 @@ public class WebApp {
                 .replace("|", "\\|")
                 .replace("\n", " ")
                 .replace(TASK_SEPARATOR, " ")
-                .replace(PHOTO_SEPARATOR, " ");
+                .replace(PHOTO_SEPARATOR, " ")
+                .replace(MATERIAL_SEPARATOR, " ")
+                .replace(MATERIAL_FIELD_SEPARATOR, " ");
     }
 
     private static String encodeProjectTasks(List<ProjectTask> tasks) {
@@ -883,6 +1235,47 @@ public class WebApp {
         }
 
         return photos;
+    }
+
+    private static String encodeProjectMaterials(List<ProjectMaterial> materials) {
+        ArrayList<String> encodedMaterials = new ArrayList<>();
+
+        for (ProjectMaterial material : materials) {
+            encodedMaterials.add(encodeProjectText(material.getName())
+                    + MATERIAL_FIELD_SEPARATOR
+                    + encodeProjectText(material.getQuantity())
+                    + MATERIAL_FIELD_SEPARATOR
+                    + encodeProjectText(material.getStatus()));
+        }
+
+        return String.join(MATERIAL_SEPARATOR, encodedMaterials);
+    }
+
+    private static List<ProjectMaterial> decodeProjectMaterials(String text) {
+        ArrayList<ProjectMaterial> materials = new ArrayList<>();
+
+        if (text.isBlank()) {
+            return materials;
+        }
+
+        String[] savedMaterials = text.split(MATERIAL_SEPARATOR, -1);
+
+        for (String savedMaterial : savedMaterials) {
+            if (savedMaterial.isBlank()) {
+                continue;
+            }
+
+            String[] materialParts = savedMaterial.split(MATERIAL_FIELD_SEPARATOR, 3);
+            String name = decodeProjectText(materialParts[0]);
+            String quantity = materialParts.length > 1 ? decodeProjectText(materialParts[1]) : "";
+            String status = materialParts.length > 2 ? decodeProjectText(materialParts[2]) : "";
+
+            if (!name.isBlank()) {
+                materials.add(new ProjectMaterial(name, quantity, status));
+            }
+        }
+
+        return materials;
     }
 
     private static String decodeProjectText(String text) {

@@ -1,2 +1,2 @@
-Kitchen Remodel|Maria Lopez|24 Maple Street|In Progress||
-Bathroom Addition|James Carter|108 Pine Avenue|Waiting on Inspection||
+Kitchen Remodel|Maria Lopez|24 Maple Street|In Progress||||0.0|0.0
+Bathroom Addition|James Carter|108 Pine Avenue|Waiting on Inspection||||0.0|0.0

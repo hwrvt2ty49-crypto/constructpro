@@ -11,6 +11,8 @@ Right now it can:
 - Run as a simple browser app at `http://localhost:8080`
 - Save browser app projects to `projects.txt`
 - Add, edit, complete, and delete tasks under each project
+- Track materials under each project
+- Track estimated budget, actual cost, and remaining budget
 - Upload photos under each project
 
 ## Where the Code Goes
